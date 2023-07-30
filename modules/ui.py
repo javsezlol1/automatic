@@ -350,7 +350,7 @@ def create_ui(startup_timer = None):
         with FormRow(variant='compact', elem_id="txt2img_extra_networks", visible=False) as extra_networks_ui:
             from modules import ui_extra_networks
             extra_networks_ui = ui_extra_networks.create_ui(extra_networks_ui, extra_networks_button, 'txt2img', skip_indexing=opts.extra_network_skip_indexing)
-        with FormRow(variant='compact', elem_id="txt2img_styles", visible=False) as styles_ui:
+        with FormRow(variant='compact', elem_id="txt2img_styles_popout", visible=False) as styles_ui:
             from modules import ui_Styles
             styles_ui = ui_Styles.create_ui(styles_ui, styles_button)    
         with gr.Row().style(equal_height=False, elem_id="txt2img_interface"):
@@ -520,7 +520,7 @@ def create_ui(startup_timer = None):
             from modules import ui_extra_networks
             extra_networks_ui_img2img = ui_extra_networks.create_ui(extra_networks_ui, extra_networks_button, 'img2img', skip_indexing=opts.extra_network_skip_indexing)
 
-        with FormRow(variant='compact', elem_id="img2img_styles", visible=False) as styles_ui:
+        with FormRow(variant='compact', elem_id="img2img_styles_popout", visible=False) as styles_ui:
             from modules import ui_Styles
             styles_ui = ui_Styles.create_ui(styles_ui, styles_button)
 
