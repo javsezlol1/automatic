@@ -279,6 +279,21 @@ div.controlnet_main_options { display: grid; grid-template-columns: 1fr 1fr; gri
 .loader::before { border-top-color: var(--primary-900); animation: 3s spin linear infinite; }
 .loader::after { border-top-color: var(--primary-300); animation: spin 1.5s linear infinite; }
 
+
+/* styles tab */
+#style_tags_column{min-width: unset !important;max-width:8vw; background-color: #333; padding: 5px; min-width: min(0px,100%) !important; border-style: solid; border-left: #e76715;}
+#style_cards_column{height: 40vh; min-width: unset !important;width: 26vw;overflow: auto;}
+.style_card{ display: flex; flex-direction: column; align-items: center; justify-content: center; width:auto; height: 16vh;float: left; contain: content;margin: 5px;}
+.styles_overlay{position: absolute;width: 100%; ;height:100% ;background-color: rgba(46, 46, 46, 0.642);opacity: 0; transition:opacity 0.5s ease; border-bottom: solid;}
+.style_card:hover .styles_overlay{ opacity: 1; }
+.styles_thumbnail{height:inherit !important; width:auto; object-fit: contain;}
+.styles_title{pointer-events: none;position: absolute;top: 0;left: 0;background: black; padding: 2px;}
+.styles_description{pointer-events: none;position: fixed;text-align: center; opacity: 0; transition:opacity 0.5s ease;}
+.style_card:hover .styles_description{ opacity: 1; }
+#txt2img_styles_popout{border-left: solid;background: black !important}
+#txt2img_styles_popout > div{left: 0.3vw;}
+#style_refresh{min-width:unset !important;max-width: 2vw;margin: 5px;align-self: baseline;font-size: 20px;}
+#style_tags > label > div{ border: solid;border-width: 2px;border-radius: 15px;background-color: #00000042;margin-top: 10px;}
 @keyframes move {
   from { background-position-x: 0, -40px; }
   to { background-position-x: 0, 40px; }
@@ -287,3 +302,5 @@ div.controlnet_main_options { display: grid; grid-template-columns: 1fr 1fr; gri
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+
