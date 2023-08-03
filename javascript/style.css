@@ -282,18 +282,43 @@ div.controlnet_main_options { display: grid; grid-template-columns: 1fr 1fr; gri
 
 /* styles tab */
 #style_tags_column{min-width: unset !important;max-width:8vw; background-color: #333; padding: 5px; min-width: min(0px,100%) !important; border-style: solid; border-left: #e76715;}
-#style_cards_column{height: 40vh; min-width: unset !important;width: 26vw;overflow: auto;}
-.style_card{ display: flex; flex-direction: column; align-items: center; justify-content: center; width:auto; height: 16vh;float: left; contain: content;margin: 5px;}
-.styles_overlay{position: absolute;width: 100%; ;height:100% ;background-color: rgba(46, 46, 46, 0.642);opacity: 0; transition:opacity 0.5s ease; border-bottom: solid;}
-.style_card:hover .styles_overlay{ opacity: 1; }
+#style_cards_column{height: 40vh; min-width: unset !important;width: 26vw;overflow: auto;padding-top: 10px;padding-left: 5px;}
+.style_card{ display: flex; flex-direction: column; align-items: center; justify-content: center; width:auto;float: left; contain: content;margin-top: unset !important; margin: 5px;}
+.styles_overlay{position: absolute;width: 100%; ;height:100% ;background-color: rgba(46, 46, 46, 0.642);opacity: 0; transition:opacity 0.5s ease;}
+.style_card:hover .styles_overlay{ opacity: 1;}
+.style_card:hover {box-shadow: 0px 0px 12px 1px #fff !important;}
 .styles_thumbnail{height:inherit !important; width:auto; object-fit: contain;}
-.styles_title{pointer-events: none;position: absolute;top: 0;left: 0;background: black; padding: 2px;}
+.styles_title{pointer-events: none;position: absolute;top: 0;left: 0;background:#00000094; padding: 2px;}
 .styles_description{pointer-events: none;position: fixed;text-align: center; opacity: 0; transition:opacity 0.5s ease;}
 .style_card:hover .styles_description{ opacity: 1; }
-#txt2img_styles_popout{border-left: solid;background: black !important}
-#txt2img_styles_popout > div{left: 0.3vw;}
+#txt2img_styles_popout > div{left: 0.3vw;flex-flow: column;}
+#img2img_styles_popout > div{left: 0.3vw;flex-flow: column;}
+#txt2img_styles_popout {border-left-style: solid;border-left-width: 2px}
+#img2img_styles_popout {border-left-style: solid;border-left-width: 2px}
 #style_refresh{min-width:unset !important;max-width: 2vw;margin: 5px;align-self: baseline;font-size: 20px;}
-#style_tags > label > div{ border: solid;border-width: 2px;border-radius: 15px;background-color: #00000042;margin-top: 10px;}
+#style_tags > label > div{margin-top: 10px;}
+.EditStyleJson{z-index: 9999;position: absolute;background-color: #00000094 !important;right: 0;bottom: 0; padding: 5px !important;}
+#style_lastgen_btn{width: 10px;}
+#style_img_btn_column{min-width: unset !important}
+#style_thumbnailbox{height: 140px !important;width: fit-content;align-self: center;}
+#style_thumbnailbox > {display: none !important;}
+#style_command_btn_row{width: fit-content !important;align-self: end;}
+#style_filename_check_container{top:-20px;}
+#style_cards_Pref{flex-grow: 0; max-height: fit-content;  position: absolute; bottom: 0;}
+#gradio_style_savefolder_row{top: -35px;position: relative !important;}
+.styles_checkbox{max-width: fit-content;min-width: unset !important;}
+.gradio-textbox > label > textarea {box-shadow: 0px 0px 0px 0px #ffffff00;transition:box-shadow 0.5s ease;}
+.gradio-textbox:hover > label > textarea {box-shadow: 0px 0px 8px 0px #ffffff;}
+.gradio-textbox > label > textarea:focus {box-shadow: 0px 0px 8px 0px #ffffff;}
+.gradio-dropdown > label > div > div {box-shadow: 0px 0px 0px 0px #ffffff00;transition:box-shadow 0.5s ease;}
+.gradio-dropdown:hover > label > div > div:hover {box-shadow: 0px 0px 8px 0px #ffffff;}
+.gradio-dropdown > label > div > div:focus {box-shadow: 0px 0px 8px 0px #ffffff;}
+#style_save_status_container{left: 0;width: 250px;position: absolute;}
+.styles_dropdown > label > div{background-color: #00000042 !important;}
+.styles_checkbox > label > input{box-shadow: none !important;}
+
+
+
 @keyframes move {
   from { background-position-x: 0, -40px; }
   to { background-position-x: 0, 40px; }
