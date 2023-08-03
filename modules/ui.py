@@ -352,7 +352,7 @@ def create_ui(startup_timer = None):
             extra_networks_ui = ui_extra_networks.create_ui(extra_networks_ui, extra_networks_button, 'txt2img', skip_indexing=opts.extra_network_skip_indexing)
         with FormRow(variant='compact', elem_id="txt2img_styles_popout", visible=False) as styles_ui:
             from modules import ui_Styles
-            styles_ui = ui_Styles.create_ui(styles_ui, styles_button)    
+            styles_ui = ui_Styles.create_ui(styles_ui, styles_button)
         with gr.Row().style(equal_height=False, elem_id="txt2img_interface"):
             with gr.Column(variant='compact', elem_id="txt2img_settings"):
                 modules.sd_samplers.set_samplers()
