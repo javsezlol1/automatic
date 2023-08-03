@@ -1,0 +1,15 @@
+{
+    "name": "Enhance",
+    "description": "Detail enhancement ",
+    "categories": [
+        "Style"
+    ],
+    "tags": [
+        "professional",
+        "highly detailed"
+    ],
+    "thumbnail": "Enhance.jpg",
+    "prompt": "breathtaking {prompt} . award-winning, professional, highly detailed",
+    "negative": "ugly, deformed, noisy, blurry, distorted, grainy",
+    "extra": "Steps:20, Sampler:LMSD, CFG scale: 6, Seed: -1, Size: 1024x1024"
+}

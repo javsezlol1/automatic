@@ -1,0 +1,14 @@
+{
+    "name": "Digital art",
+    "description": "Digital art",
+    "categories": [
+        "Style"
+    ],
+    "tags": [
+        "digital artwork"
+    ],
+    "thumbnail": "Digital-art.jpg",
+    "prompt": "concept art {prompt} . digital artwork, illustrative, painterly, matte painting, highly detailed",
+    "negative": "photo, photorealistic, realism, ugly",
+    "extra": "Steps:20, Sampler:UniPC, CFG scale: 6, Seed: -1, Size: 1024x1024"
+}
