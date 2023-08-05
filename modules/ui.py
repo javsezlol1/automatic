@@ -14,6 +14,7 @@ from modules import sd_hijack, sd_models, script_callbacks, ui_extensions, deepb
 from modules.ui_components import FormRow, FormColumn, FormGroup, ToolButton, FormHTML # pylint: disable=unused-import
 from modules.paths import script_path, data_path
 from modules.shared import opts, cmd_opts, readfile
+from modules.dml import directml_override_opts
 from modules import prompt_parser
 import modules.codeformer_model
 import modules.generation_parameters_copypaste as parameters_copypaste
@@ -31,6 +32,7 @@ import modules.sd_samplers
 modules.errors.install()
 mimetypes.init()
 mimetypes.add_type('application/javascript', '.js')
+log = modules.shared.log
 
 if not cmd_opts.share and not cmd_opts.listen:
     # fix gradio phoning home
@@ -126,7 +128,7 @@ def process_interrogate(interrogation_function, mode, ii_input_files, ii_input_d
             images = [f.name for f in ii_input_files]
         else:
             if not os.path.isdir(ii_input_dir):
-                modules.shared.log.error(f"Input directory not found: {ii_input_dir}")
+                log.error(f"Input directory not found: {ii_input_dir}")
                 return
             images = modules.shared.listfiles(ii_input_dir)
         if ii_output_dir != "":
@@ -195,7 +197,7 @@ def connect_reuse_seed(seed: gr.Number, reuse_seed: gr.Button, generation_info: 
                 res = all_seeds[index if 0 <= index < len(all_seeds) else 0]
         except json.decoder.JSONDecodeError:
             if gen_info_string != '':
-                modules.shared.log.error(f"Error parsing JSON generation info: {gen_info_string}")
+                log.error(f"Error parsing JSON generation info: {gen_info_string}")
         return [res, gr_show(False)]
 
     reuse_seed.click(fn=copy_seed, _js="(x, y) => [x, selected_gallery_index()]", show_progress=False, inputs=[generation_info, dummy_component], outputs=[seed, dummy_component])
@@ -389,7 +391,7 @@ def create_ui(startup_timer = None):
                     hr_second_pass_steps, latent_index = create_sampler_and_steps_selection(modules.sd_samplers.samplers, "txt2img", False)
                     with FormRow(elem_id="txt2img_hires_fix_row1", variant="compact"):
                         denoising_strength = gr.Slider(minimum=0.05, maximum=1.0, step=0.01, label='Denoising strength', value=0.3, elem_id="txt2img_denoising_strength")
-                        refiner_start = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Denoise start', value=1.0, elem_id="txt2img_refiner_start")
+                        refiner_start = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Denoise start', value=0.8, elem_id="txt2img_refiner_start")
                     with FormRow(elem_id="txt2img_hires_finalres", variant="compact"):
                         hr_final_resolution = FormHTML(value="", elem_id="txtimg_hr_finalres", label="Upscaled resolution", interactive=False)
                     with FormRow(elem_id="txt2img_hires_fix_row2", variant="compact"):
@@ -495,6 +497,7 @@ def create_ui(startup_timer = None):
                 (hr_scale, "Hires upscale"),
                 (hr_upscaler, "Hires upscaler"),
                 (hr_second_pass_steps, "Hires steps"),
+                (hr_second_pass_steps, "Secondary steps"),
                 (hr_resize_x, "Hires resize-1"),
                 (hr_resize_y, "Hires resize-2"),
                 *modules.scripts.scripts_txt2img.infotext_fields
@@ -506,6 +509,7 @@ def create_ui(startup_timer = None):
             negative_token_button.click(fn=wrap_queued_call(update_token_counter), inputs=[txt2img_negative_prompt, steps], outputs=[negative_token_counter])
 
             ui_extra_networks.setup_ui(extra_networks_ui, txt2img_gallery)
+            log.debug(f'UI interface: tab=txt2img batch={show_batch.value} seed={show_seed.value} advanced={show_advanced.value} second_pass={show_second_pass.value}')
 
     startup_timer.record("ui-txt2img")
 
@@ -849,6 +853,7 @@ def create_ui(startup_timer = None):
                 (hr_scale, "Hires upscale"),
                 (hr_upscaler, "Hires upscaler"),
                 (hr_second_pass_steps, "Hires steps"),
+                (hr_second_pass_steps, "Secondary steps"),
                 (hr_resize_x, "Hires resize-1"),
                 (hr_resize_y, "Hires resize-2"),
                 (image_cfg_scale, "Image CFG scale"),
@@ -860,6 +865,8 @@ def create_ui(startup_timer = None):
             parameters_copypaste.register_paste_params_button(parameters_copypaste.ParamBinding(
                 paste_button=img2img_paste, tabname="img2img", source_text_component=img2img_prompt, source_image_component=None,
             ))
+
+            log.debug(f'UI interface: tab=img2img seed={show_seed.value} resize={show_resize.value} batch={show_batch.value} denoise={show_denoise.value} advanced={show_advanced.value}')
 
     startup_timer.record("ui-img2img")
 
@@ -917,7 +924,7 @@ def create_ui(startup_timer = None):
             try:
                 res = comp(label=info.label, value=fun(), elem_id=elem_id, **(args or {}))
             except Exception as e:
-                modules.shared.log.error(f'Error creating setting: {key} {e}')
+                log.error(f'Error creating setting: {key} {e}')
                 res = None
 
         if res is not None and not is_quicksettings:
@@ -958,11 +965,13 @@ def create_ui(startup_timer = None):
                 continue
             if opts.set(key, value):
                 changed.append(key)
+        if cmd_opts.use_directml:
+            directml_override_opts()
         try:
             opts.save(modules.shared.config_filename)
-            modules.shared.log.info(f'Settings changed: {len(changed)} {changed}')
+            log.info(f'Settings changed: {len(changed)} {changed}')
         except RuntimeError:
-            modules.shared.log.error(f'Settings change failed: {len(changed)} {changed}')
+            log.error(f'Settings change failed: {len(changed)} {changed}')
             return opts.dumpjson(), f'{len(changed)} Settings changed without save: {", ".join(changed)}'
         return opts.dumpjson(), f'{len(changed)} Settings changed{": " if len(changed) > 0 else ""}{", ".join(changed)}'
 
@@ -971,8 +980,10 @@ def create_ui(startup_timer = None):
             return gr.update(visible=True), opts.dumpjson()
         if not opts.set(key, value):
             return gr.update(value=getattr(opts, key)), opts.dumpjson()
+        if cmd_opts.use_directml:
+            directml_override_opts()
         opts.save(modules.shared.config_filename)
-        modules.shared.log.debug(f'Setting changed: key={key}, value={value}')
+        log.debug(f'Setting changed: key={key}, value={value}')
         return get_value_for_setting(key), opts.dumpjson()
 
     with gr.Blocks(analytics_enabled=False) as settings_interface:
@@ -1182,7 +1193,7 @@ def html_head():
         head += f'<script type="module" src="{webpath(script.path)}"></script>\n'
         added.append(script.path)
     added = [a.replace(script_path, '').replace('\\', '/') for a in added]
-    # modules.shared.log.debug(f'Adding JS scripts: {added}')
+    # log.debug(f'Adding JS scripts: {added}')
     return head
 
 
@@ -1212,7 +1223,7 @@ def html_css():
     if os.path.exists(os.path.join(data_path, "user.css")):
         head += stylesheet(os.path.join(data_path, "user.css"))
     added = [a.replace(script_path, '').replace('\\', '/') for a in added]
-    # modules.shared.log.debug(f'Adding CSS stylesheets: {added}')
+    # log.debug(f'Adding CSS stylesheets: {added}')
     return head
 
 
