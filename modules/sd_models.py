@@ -2,6 +2,7 @@ import collections
 import os.path
 import re
 import io
+import sys
 import json
 import threading
 from os import mkdir
@@ -240,9 +241,12 @@ def select_checkpoint(op='model'):
         return None
     checkpoint_info = next(iter(checkpoints_list.values()))
     if model_checkpoint is not None:
-        shared.log.warning(f"Selected checkpoint not found: {model_checkpoint}")
+        if model_checkpoint != 'model.ckpt' and model_checkpoint != 'runwayml/stable-diffusion-v1-5':
+            shared.log.warning(f"Selected checkpoint not found: {model_checkpoint}")
+        else:
+            shared.log.info("Selecting first available checkpoint")
         # shared.log.warning(f"Loading fallback checkpoint: {checkpoint_info.title}")
-        shared.opts.data['sd_checkpoint'] = checkpoint_info.title
+        shared.opts.data['sd_model_checkpoint'] = checkpoint_info.title
     shared.log.debug(f'Select checkpoint: {checkpoint_info.title if checkpoint_info is not None else None}')
     return checkpoint_info
 
@@ -455,7 +459,7 @@ def repair_config(sd_config):
     if shared.opts.no_half:
         sd_config.model.params.unet_config.params.use_fp16 = False
     elif shared.opts.upcast_sampling:
-        sd_config.model.params.unet_config.params.use_fp16 = True
+        sd_config.model.params.unet_config.params.use_fp16 = True if sys.platform != 'darwin' else False
     if getattr(sd_config.model.params.first_stage_config.params.ddconfig, "attn_type", None) == "vanilla-xformers" and not shared.xformers_available:
         sd_config.model.params.first_stage_config.params.ddconfig.attn_type = "vanilla"
     # For UnCLIP-L, override the hardcoded karlo directory
@@ -596,6 +600,7 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
     import logging
     logging.getLogger("diffusers").setLevel(logging.ERROR)
     timer.record("diffusers")
+    devices.set_cuda_params()
     diffusers_load_config = {
         "low_cpu_mem_usage": True,
         "torch_dtype": devices.dtype,
@@ -632,7 +637,6 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
             if model_name is not None:
                 shared.log.info(f'Loading diffuser {op}: {model_name}')
                 model_file = modelloader.download_diffusers_model(hub_id=model_name)
-                devices.set_cuda_params()
                 try:
                     shared.log.debug(f'Diffusers load {op} config: {diffusers_load_config}')
                     sd_model = diffusers.DiffusionPipeline.from_pretrained(model_file, **diffusers_load_config)
@@ -647,7 +651,6 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
                 unload_model_weights(op=op)
                 return
 
-            devices.set_cuda_params()
             vae = None
             sd_vae.loaded_vae_file = None
             if op == 'model' or op == 'refiner':
@@ -692,7 +695,7 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
 
         if (shared.opts.diffusers_model_cpu_offload or shared.cmd_opts.medvram) and (shared.opts.diffusers_seq_cpu_offload or shared.cmd_opts.lowvram):
             shared.log.warning(f'Diffusers {op}: Model CPU offload (--medvram) and Sequential CPU offload (--lowvram) are not compatible')
-            shared.log.debug(f'Diffusers {op}: disable model CPU offload and --medvram')
+            shared.log.debug(f'Diffusers {op}: disabling model CPU offload and --medvram')
             shared.opts.diffusers_model_cpu_offload=False
             shared.cmd_opts.medvram=False
 
@@ -702,11 +705,21 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
         if hasattr(sd_model, "enable_model_cpu_offload"):
             if (shared.cmd_opts.medvram and devices.backend != "directml") or shared.opts.diffusers_model_cpu_offload:
                 shared.log.debug(f'Diffusers {op}: enable model CPU offload')
+                if shared.opts.diffusers_move_base or shared.opts.diffusers_move_unet or shared.opts.diffusers_move_refiner:
+                    shared.opts.diffusers_move_base = False
+                    shared.opts.diffusers_move_unet = False
+                    shared.opts.diffusers_move_refiner = False
+                    shared.log.warning(f'Disabling {op} "Move model to CPU" since "Model CPU offload" is enabled')
                 sd_model.enable_model_cpu_offload()
                 sd_model.has_accelerate = True
         if hasattr(sd_model, "enable_sequential_cpu_offload"):
             if shared.cmd_opts.lowvram or shared.opts.diffusers_seq_cpu_offload:
                 shared.log.debug(f'Diffusers {op}: enable sequential CPU offload')
+                if shared.opts.diffusers_move_base or shared.opts.diffusers_move_unet or shared.opts.diffusers_move_refiner:
+                    shared.opts.diffusers_move_base = False
+                    shared.opts.diffusers_move_unet = False
+                    shared.opts.diffusers_move_refiner = False
+                    shared.log.warning(f'Disabling {op} "Move model to CPU" since "Sequential CPU offload" is enabled')
                 sd_model.enable_sequential_cpu_offload(device=devices.device)
                 sd_model.has_accelerate = True
         if hasattr(sd_model, "enable_vae_slicing"):
@@ -745,7 +758,7 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
             sd_model.unet.to(memory_format=torch.channels_last)
 
         base_sent_to_cpu=False
-        if (shared.opts.cuda_compile or shared.opts.ipex_optimize) and torch.cuda.is_available():
+        if (shared.opts.cuda_compile and shared.opts.cuda_compile_backend != 'none') or shared.opts.ipex_optimize:
             if op == 'refiner' and not sd_model.has_accelerate:
                 gpu_vram = memory_stats().get('gpu', {})
                 free_vram = gpu_vram.get('total', 0) - gpu_vram.get('used', 0)
@@ -756,10 +769,11 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
                 else:
                     if not refiner_enough_vram and not (shared.opts.diffusers_move_base and shared.opts.diffusers_move_refiner):
                         shared.log.warning(f"Insufficient GPU memory, using system memory as fallback: free={free_vram} GB")
-                        shared.log.debug('Enabled moving base model to CPU')
-                        shared.log.debug('Enabled moving refiner model to CPU')
-                        shared.opts.diffusers_move_base=True
-                        shared.opts.diffusers_move_refiner=True
+                        if not shared.opts.shared.opts.diffusers_seq_cpu_offload and not shared.opts.diffusers_model_cpu_offload:
+                            shared.log.debug('Enabled moving base model to CPU')
+                            shared.log.debug('Enabled moving refiner model to CPU')
+                            shared.opts.diffusers_move_base=True
+                            shared.opts.diffusers_move_refiner=True
                     shared.log.debug('Moving base model to CPU')
                     model_data.sd_model.to(devices.cpu)
                     devices.torch_gc(force=True)
@@ -770,21 +784,27 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
             try:
                 if shared.opts.ipex_optimize:
                     sd_model.unet.training = False
+                    sd_model.vae.training = False
                     sd_model.unet = torch.xpu.optimize(sd_model.unet, dtype=devices.dtype_unet, inplace=True, weights_prepack=False) # pylint: disable=attribute-defined-outside-init
+                    sd_model.vae = torch.xpu.optimize(sd_model.vae, dtype=devices.dtype_unet, inplace=True, weights_prepack=False) # pylint: disable=attribute-defined-outside-init
                     shared.log.info("Applied IPEX Optimize.")
             except Exception as err:
                 shared.log.warning(f"IPEX Optimize not supported: {err}")
             try:
-                if shared.opts.cuda_compile:
+                if shared.opts.cuda_compile and shared.opts.cuda_compile_backend != 'none':
                     shared.log.info(f"Compiling pipeline={sd_model.__class__.__name__} shape={8 * sd_model.unet.config.sample_size} mode={shared.opts.cuda_compile_backend}")
                     import torch._dynamo # pylint: disable=unused-import,redefined-outer-name
+                    if shared.opts.cuda_compile_backend == "openvino_fx":
+                        from modules.intel.openvino import openvino_fx
                     log_level = logging.WARNING if shared.opts.cuda_compile_verbose else logging.CRITICAL # pylint: disable=protected-access
                     if hasattr(torch, '_logging'):
                         torch._logging.set_logs(dynamo=log_level, aot=log_level, inductor=log_level) # pylint: disable=protected-access
                     torch._dynamo.config.verbose = shared.opts.cuda_compile_verbose # pylint: disable=protected-access
                     torch._dynamo.config.suppress_errors = shared.opts.cuda_compile_errors # pylint: disable=protected-access
                     sd_model.unet = torch.compile(sd_model.unet, mode=shared.opts.cuda_compile_mode, backend=shared.opts.cuda_compile_backend, fullgraph=shared.opts.cuda_compile_fullgraph) # pylint: disable=attribute-defined-outside-init
-                    sd_model("dummy prompt")
+                    sd_model.vae.decode = torch.compile(sd_model.vae.decode, mode=shared.opts.cuda_compile_mode, backend=shared.opts.cuda_compile_backend, fullgraph=shared.opts.cuda_compile_fullgraph) # pylint: disable=attribute-defined-outside-init
+                    if shared.opts.cuda_compile_precompile:
+                        sd_model("dummy prompt")
                     shared.log.info("Complilation done.")
             except Exception as err:
                 shared.log.warning(f"Model compile not supported: {err}")

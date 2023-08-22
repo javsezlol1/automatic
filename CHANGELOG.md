@@ -1,19 +1,51 @@
 # Change Log for SD.Next
 
-## Update for 2023-08-14
+## Update for 2023-08-21
+
+- general:
+  - all system and image paths are now relative by default
+  - fix extra networks previews
+  - add settings validation when performing load/save
+
+## Update for 2023-08-20
+
+Another release thats been baking in dev branch for a while...
+
+- general:
+  - caching of extra network information to enable much faster create/refresh operations  
+    thanks @midcoastal
+- diffusers:
+  - add **hires** support (*experimental*)  
+    applies to all model types that support img2img, including **sd** and **sd-xl**  
+    also supports all hires upscaler types as well as standard params like steps and denoising strength  
+    when used with **sd-xl**, it can be used with or without refiner loaded  
+    how to enable - there are no explicit checkboxes other than second pass itself:
+    - hires: upscaler is set and target resolution is not at default  
+    - refiner: if refiner model is loaded  
+  - images save options: *before hires*, *before refiner*
+  - redo `move model to cpu` logic in settings -> diffusers to be more reliable  
+    note that system defaults have also changed, so you may need to tweak to your liking  
+  - update dependencies
+
+## Update for 2023-08-17
+
+Smaller update, but with some breaking changes (to prepare for future larger functionality)...
 
 - general:
   - update all metadata saved with images  
     see <https://github.com/vladmandic/automatic/wiki/Metadata> for details  
-    (work-in-progress)
   - improved **amd** installer with support for **navi 2x & 3x** and **rocm 5.4/5.5/5.6**  
     thanks @evshiron  
-  - fix img2img resizing (applies to original, diffusers, hires)  
+  - fix **img2img** resizing (applies to *original, diffusers, hires*)  
+  - config change: main `config.json` no longer contains entire configuration  
+    but only differences from defaults (simmilar to recent change performed to `ui-config.json`)  
 - diffusers:
-  - enable batch img2img workflows
-- original:
+  - enable **batch img2img** workflows  
+- original:  
   - new samplers: **dpm++ 3M sde** (standard and karras variations)  
     enable in *settings -> samplers -> show samplers*
+  - expose always/never discard penultimage sigma  
+    enable in *settings -> samplers*  
 
 ## Update for 2023-08-11
 

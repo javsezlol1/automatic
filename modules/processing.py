@@ -484,6 +484,7 @@ def create_infotext(p: StableDiffusionProcessing, all_prompts, all_seeds, all_su
         "Negative2": p.refiner_negative if p.enable_hr and len(p.refiner_negative) > 0 else None,
         "Latent sampler": p.latent_sampler if p.enable_hr and p.latent_sampler != p.sampler_name else None,
         "Denoising strength": p.denoising_strength if p.enable_hr else None,
+        "Image CFG Scale": p.image_cfg_scale,
         # sdnext
         "Backend": 'Diffusers' if shared.backend == shared.Backend.DIFFUSERS else 'Original',
         "Version": git_commit,
@@ -710,7 +711,7 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
             else:
                 raise ValueError(f"Unknown backend {shared.backend}")
 
-            if shared.cmd_opts.lowvram or shared.cmd_opts.medvram:
+            if shared.cmd_opts.lowvram or shared.cmd_opts.medvram and shared.backend == shared.Backend.ORIGINAL:
                 lowvram.send_everything_to_cpu()
                 devices.torch_gc()
             if p.scripts is not None:
